@@ -34,8 +34,8 @@ function PartyMarker({ marker }) {
   );
 }
 
-// Draws the static hex layer to canvas — only called when hexData/mode changes
-function redrawCanvas(canvas, hexData, mode) {
+// Draws the static hex layer to canvas — only called when hexData/mode/spotlight changes
+function redrawCanvas(canvas, hexData, mode, spotlightColor) {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, MAP_W, MAP_H);
 
@@ -47,23 +47,27 @@ function redrawCanvas(canvas, hexData, mode) {
       const { col, row } = colRowFromId(id);
       const [cx, cy] = hexCenter(col, row);
 
+      const lit = !spotlightColor || h.colorTag === spotlightColor;
+
       drawHexPath(ctx, cx, cy, HEX_R * 0.89);
-      ctx.fillStyle = h.colorTag + '30';
+      ctx.fillStyle = h.colorTag + (lit ? '48' : '0d');
       ctx.fill();
       ctx.strokeStyle = h.colorTag;
-      ctx.lineWidth = 1.5;
-      ctx.globalAlpha = 0.65;
+      ctx.lineWidth = lit ? 2.2 : 1.0;
+      ctx.globalAlpha = lit ? 0.9 : 0.18;
       ctx.stroke();
       ctx.globalAlpha = 1;
 
-      // Tier badge dot
-      ctx.beginPath();
-      ctx.arc(cx + HEX_R * 0.56, cy - HEX_R * 0.55, HEX_R * 0.19, 0, Math.PI * 2);
-      ctx.fillStyle = TIER_COLORS[h.revealTier] || TIER_COLORS[0];
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-      ctx.lineWidth = 0.8;
-      ctx.stroke();
+      if (lit) {
+        // Tier badge dot
+        ctx.beginPath();
+        ctx.arc(cx + HEX_R * 0.56, cy - HEX_R * 0.55, HEX_R * 0.19, 0, Math.PI * 2);
+        ctx.fillStyle = TIER_COLORS[h.revealTier] || TIER_COLORS[0];
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+      }
     });
     return;
   }
@@ -147,7 +151,7 @@ function redrawCanvas(canvas, hexData, mode) {
   ctx.shadowBlur = 0;
 }
 
-export default function HexMap({ hexData, mode, onHexClick, onHexPaint, selectedHexId, partyMarkers, accentColor, movingMarkerId, multiSelectIds }) {
+export default function HexMap({ hexData, mode, onHexClick, onHexPaint, selectedHexId, partyMarkers, accentColor, movingMarkerId, multiSelectIds, spotlightColor }) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [hoveredId, setHoveredId] = useState(null);
@@ -184,10 +188,9 @@ export default function HexMap({ hexData, mode, onHexClick, onHexPaint, selected
     return () => el.removeEventListener('wheel', handler);
   }, []);
 
-  // Redraw canvas only when hex data or mode changes — NOT on every interaction
   useEffect(() => {
-    if (canvasRef.current) redrawCanvas(canvasRef.current, hexData, mode);
-  }, [hexData, mode]);
+    if (canvasRef.current) redrawCanvas(canvasRef.current, hexData, mode, spotlightColor);
+  }, [hexData, mode, spotlightColor]);
 
   const getHexAt = (clientX, clientY) => {
     const { zoom: z, pan: p } = liveRef.current;

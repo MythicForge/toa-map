@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useAppState } from '../hooks/useAppState';
 import { ALL_LOCATIONS } from '../lib/locations';
 import HexMap from '../components/HexMap';
@@ -7,6 +7,91 @@ import TopBar from '../components/TopBar';
 import TrackerManager from '../components/TrackerManager';
 import PartyManager from '../components/PartyManager';
 import BulkEditBar from '../components/BulkEditBar';
+
+function ColorLegend({ hexes, spotlightColor, onSpotlight }) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  const groups = useMemo(() => {
+    const map = {};
+    Object.values(hexes).forEach(h => {
+      if (!h.colorTag) return;
+      if (!map[h.colorTag]) map[h.colorTag] = { count: 0, names: [] };
+      map[h.colorTag].count++;
+      if (h.name) map[h.colorTag].names.push(h.name);
+    });
+    return Object.entries(map).sort((a, b) => b[1].count - a[1].count);
+  }, [hexes]);
+
+  if (groups.length === 0) return null;
+
+  return (
+    <div style={{
+      position: 'absolute', bottom: 16, right: 16,
+      background: 'rgba(8,8,18,0.92)', border: '1px solid rgba(255,255,255,0.1)',
+      borderRadius: 6, zIndex: 40, minWidth: 140,
+      boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
+    }}>
+      <div
+        onClick={() => setCollapsed(c => !c)}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '6px 10px', cursor: 'pointer',
+          borderBottom: collapsed ? 'none' : '1px solid rgba(255,255,255,0.07)',
+        }}
+      >
+        <span style={{ fontSize: 9, fontFamily: 'Cinzel, serif', letterSpacing: '0.14em', color: 'rgba(255,255,255,0.32)' }}>
+          COLOR REGIONS
+        </span>
+        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', marginLeft: 8 }}>{collapsed ? '▲' : '▼'}</span>
+      </div>
+
+      {!collapsed && (
+        <div style={{ padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {groups.map(([color, { count, names }]) => {
+            const active = spotlightColor === color;
+            return (
+              <button
+                key={color}
+                title={names.slice(0, 8).join(', ') || color}
+                onClick={() => onSpotlight(active ? null : color)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 7,
+                  padding: '4px 7px', borderRadius: 4, cursor: 'pointer',
+                  background: active ? color + '22' : 'rgba(255,255,255,0.03)',
+                  border: `1px solid ${active ? color + 'aa' : 'rgba(255,255,255,0.07)'}`,
+                  textAlign: 'left',
+                }}
+              >
+                <div style={{
+                  width: 12, height: 12, borderRadius: 2, background: color, flexShrink: 0,
+                  boxShadow: active ? `0 0 6px ${color}` : 'none',
+                }} />
+                <span style={{
+                  fontSize: 11, fontFamily: 'Inter, sans-serif',
+                  color: active ? color : 'rgba(232,224,216,0.55)', flex: 1,
+                }}>
+                  {count} hex{count !== 1 ? 'es' : ''}
+                </span>
+              </button>
+            );
+          })}
+          {spotlightColor && (
+            <button
+              onClick={() => onSpotlight(null)}
+              style={{
+                marginTop: 2, padding: '3px 7px', borderRadius: 4, cursor: 'pointer',
+                background: 'transparent', border: '1px solid rgba(255,255,255,0.1)',
+                color: 'rgba(255,255,255,0.3)', fontSize: 9, fontFamily: 'Inter, sans-serif',
+              }}
+            >
+              Clear spotlight
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function GMView() {
   const { state, dispatch } = useAppState();
@@ -17,6 +102,7 @@ export default function GMView() {
   const [movingMarkerId, setMovingMarkerId] = useState(null);
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   const [selectedHexIds, setSelectedHexIds] = useState(new Set());
+  const [spotlightColor, setSpotlightColor] = useState(null);
 
   const toggleMultiSelect = () => {
     setMultiSelectMode(m => {
@@ -152,6 +238,13 @@ export default function GMView() {
           partyMarkers={state.partyMarkers}
           movingMarkerId={movingMarkerId}
           multiSelectIds={multiSelectMode ? selectedHexIds : null}
+          spotlightColor={spotlightColor}
+        />
+
+        <ColorLegend
+          hexes={state.hexes}
+          spotlightColor={spotlightColor}
+          onSpotlight={setSpotlightColor}
         />
 
         {panelOpen && selectedHexId && !multiSelectMode && (
