@@ -26,37 +26,56 @@ function trackerFromRow(row) {
   };
 }
 
+// ── Paginated fetch (bypasses Supabase's 1000-row default limit) ─
+
+async function fetchAll(table, order = null) {
+  const PAGE = 1000;
+  let rows = [];
+  let from = 0;
+  while (true) {
+    let q = supabase.from(table).select('*').range(from, from + PAGE - 1);
+    if (order) q = q.order(order);
+    const { data, error } = await q;
+    if (error) { console.error(`fetchAll ${table}`, error); break; }
+    if (!data?.length) break;
+    rows.push(...data);
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+  return rows;
+}
+
 // ── Load all state from Supabase ──────────────────────────────
 
 export async function loadAllState() {
-  const [hexRes, gmRes, markerRes, trackerRes, pnoteRes, bnoteRes] = await Promise.all([
-    supabase.from('hexes').select('*'),
-    supabase.from('gm_notes').select('*'),
-    supabase.from('party_markers').select('*').order('sort_order'),
-    supabase.from('trackers').select('*').order('sort_order'),
-    supabase.from('player_notes').select('*'),
-    supabase.from('party_notes').select('*'),
+  const [hexRows, gmRows, markerRows, trackerRows, pnoteRows, bnoteRows] = await Promise.all([
+    fetchAll('hexes'),
+    fetchAll('gm_notes'),
+    fetchAll('party_markers', 'sort_order'),
+    fetchAll('trackers', 'sort_order'),
+    fetchAll('player_notes'),
+    fetchAll('party_notes'),
   ]);
 
   const hexes = {};
-  for (const row of (hexRes.data || [])) hexes[row.hex_id] = hexFromRow(row);
-  for (const row of (gmRes.data || [])) {
+  for (const row of hexRows) hexes[row.hex_id] = hexFromRow(row);
+  for (const row of gmRows) {
     if (hexes[row.hex_id]) hexes[row.hex_id].gmNote = row.note ?? '';
   }
 
   const playerNotes = {};
-  for (const row of (pnoteRes.data || [])) {
+  for (const row of pnoteRows) {
     if (!playerNotes[row.hex_id]) playerNotes[row.hex_id] = {};
     playerNotes[row.hex_id][row.player_name] = row.note;
   }
 
   const partyNotes = {};
-  for (const row of (bnoteRes.data || [])) partyNotes[row.hex_id] = row.note;
+  for (const row of bnoteRows) partyNotes[row.hex_id] = row.note;
 
   return {
     hexes,
-    partyMarkers: (markerRes.data || []).map(markerFromRow),
-    trackers: (trackerRes.data || []).map(trackerFromRow),
+    partyMarkers: markerRows.map(markerFromRow),
+    trackers: trackerRows.map(trackerFromRow),
     playerNotes,
     partyNotes,
   };
