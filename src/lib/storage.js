@@ -48,9 +48,12 @@ async function fetchAll(table, order = null) {
 // ── Load all state from Supabase ──────────────────────────────
 
 export async function loadAllState() {
+  const { data: { session } } = await supabase.auth.getSession();
+  const isGM = !!session;
+
   const [hexRows, gmRows, markerRows, trackerRows, pnoteRows, bnoteRows] = await Promise.all([
     fetchAll('hexes'),
-    fetchAll('gm_notes'),
+    isGM ? fetchAll('gm_notes') : Promise.resolve([]),
     fetchAll('party_markers', 'sort_order'),
     fetchAll('trackers', 'sort_order'),
     fetchAll('player_notes'),
