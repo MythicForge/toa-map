@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/gm", "destination": "/index.html" },
+    { "source": "/player", "destination": "/index.html" }
+  ]
+}
