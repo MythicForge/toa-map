@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import {
   loadAllState, upsertHex, upsertMarker, deleteMarker,
   upsertTracker, deleteTracker, upsertPlayerNote, upsertPartyNote,
-  revealAllHexes, hexFromRow,
+  revealAllHexes, hydrateToSupabase, hexFromRow,
 } from '../lib/storage';
 
 function reducer(state, action) {
@@ -242,6 +242,10 @@ export function AppStateProvider({ children }) {
         break;
       case 'REVEAL_ALL':
         revealAllHexes(action.tier ?? 3);
+        break;
+      case 'HYDRATE':
+        // Only reaches here via user-triggered import (initial load uses raw dispatch)
+        hydrateToSupabase(action.state);
         break;
       default:
         break;

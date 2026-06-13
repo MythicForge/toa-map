@@ -136,3 +136,61 @@ export async function revealAllHexes(tier = 3) {
   const { error } = await supabase.rpc('reveal_all_hexes', { tier });
   if (error) console.error('revealAllHexes', error);
 }
+
+// ── Bulk import (JSON → Supabase) ─────────────────────────────
+
+async function upsertChunked(table, rows, opts = {}) {
+  const CHUNK = 400;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const { error } = await supabase.from(table).upsert(rows.slice(i, i + CHUNK), opts);
+    if (error) console.error(`upsertChunked ${table}`, error);
+  }
+}
+
+export async function hydrateToSupabase(state) {
+  const hexRows = Object.entries(state.hexes || {}).map(([hex_id, h]) => ({
+    hex_id,
+    name: h.name ?? null,
+    location_key: h.location ?? null,
+    color_tag: h.colorTag ?? null,
+    reveal_tier: h.revealTier ?? 0,
+    markdown: h.markdown ?? null,
+    shared_note: h.sharedNote ?? null,
+  }));
+
+  const gmRows = Object.entries(state.hexes || {})
+    .filter(([, h]) => h.gmNote)
+    .map(([hex_id, h]) => ({ hex_id, note: h.gmNote }));
+
+  const markerRows = (state.partyMarkers || []).map((m, i) => ({
+    id: m.id, name: m.name, color: m.color,
+    hex_id: m.hexId ?? null, sort_order: i,
+  }));
+
+  const trackerRows = (state.trackers || []).map((t, i) => ({
+    id: t.id, name: t.name, type: t.type,
+    current_value: t.current, max_value: t.max,
+    visible_to_players: t.visibleToPlayers, sort_order: i,
+  }));
+
+  const pnoteRows = [];
+  Object.entries(state.playerNotes || {}).forEach(([hex_id, players]) => {
+    Object.entries(players || {}).forEach(([player_name, note]) => {
+      if (note) pnoteRows.push({ hex_id, player_name, note });
+    });
+  });
+
+  const bnoteRows = Object.entries(state.partyNotes || {})
+    .filter(([, note]) => note)
+    .map(([hex_id, note]) => ({ hex_id, note }));
+
+  // Hexes must exist before FK-dependents (markers, notes)
+  await upsertChunked('hexes', hexRows);
+  await upsertChunked('gm_notes', gmRows);
+  await Promise.all([
+    upsertChunked('party_markers', markerRows),
+    upsertChunked('trackers', trackerRows),
+    upsertChunked('player_notes', pnoteRows, { onConflict: 'hex_id,player_name' }),
+    upsertChunked('party_notes', bnoteRows),
+  ]);
+}
