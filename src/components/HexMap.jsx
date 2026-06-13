@@ -133,22 +133,6 @@ function redrawCanvas(canvas, hexData, mode, spotlightColor) {
     ctx.stroke();
   });
 
-  // Tier2+ name labels
-  const fontSize = Math.min(HEX_R * 0.68, 13);
-  ctx.font = `600 ${fontSize}px Cinzel, serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#fff';
-  ctx.shadowColor = 'rgba(0,0,0,0.9)';
-  ctx.shadowBlur = 2;
-  tier2Plus.forEach(([id, h]) => {
-    if (!h.name) return;
-    const { col, row } = colRowFromId(id);
-    const [cx, cy] = hexCenter(col, row);
-    const label = h.name.length > 13 ? h.name.slice(0, 12) + '…' : h.name;
-    ctx.fillText(label, cx, cy);
-  });
-  ctx.shadowBlur = 0;
 }
 
 export default function HexMap({ hexData, mode, onHexClick, onHexPaint, selectedHexId, partyMarkers, accentColor, movingMarkerId, multiSelectIds, spotlightColor }) {
@@ -355,6 +339,25 @@ export default function HexMap({ hexData, mode, onHexClick, onHexPaint, selected
                 pointerEvents="none" />
             );
           })}
+
+          {/* Player mode: tier2+ name labels (SVG = crisp at any zoom) */}
+          {mode === 'player' && Object.entries(hexData)
+            .filter(([, h]) => h.revealTier >= 2 && h.name)
+            .map(([id, h]) => {
+              const { col, row } = colRowFromId(id);
+              const [cx, cy] = hexCenter(col, row);
+              const label = h.name.length > 13 ? h.name.slice(0, 12) + '…' : h.name;
+              const fs = Math.min(HEX_R * 0.68, 13);
+              return (
+                <text key={`lbl-${id}`} x={cx} y={cy}
+                  textAnchor="middle" dominantBaseline="middle"
+                  fontFamily="Cinzel, serif" fontWeight="600" fontSize={fs}
+                  fill="#fff" pointerEvents="none"
+                  style={{ filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.9))' }}>
+                  {label}
+                </text>
+              );
+            })}
 
           {/* Party markers */}
           {partyMarkers.map(m => m.hexId
