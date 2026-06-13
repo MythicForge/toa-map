@@ -1,10 +1,43 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { renderMarkdown } from '../lib/markdown';
 
-export default function PlayerPanel({ hex, hexId: hid, onClose, playerName, playerNote, partyNote, onSavePlayerNote, onSavePartyNote }) {
+const DEBOUNCE_MS = 1000;
+
+export default function PlayerPanel({ hex, hexId: hid, onClose, playerName, playerNote, partyNote, allPlayerNotes, onSavePlayerNote, onSavePartyNote }) {
   const tier = hex?.revealTier ?? 0;
   const [myNote, setMyNote] = useState(playerNote || '');
   const [party, setParty] = useState(partyNote || '');
+
+  const myNoteRef = useRef(myNote);
+  const partyRef = useRef(party);
+  myNoteRef.current = myNote;
+  partyRef.current = party;
+
+  const myNoteTimer = useRef(null);
+  const partyTimer = useRef(null);
+
+  // Debounced saves while typing
+  const handleMyNoteChange = (val) => {
+    setMyNote(val);
+    clearTimeout(myNoteTimer.current);
+    myNoteTimer.current = setTimeout(() => onSavePlayerNote(val), DEBOUNCE_MS);
+  };
+
+  const handlePartyChange = (val) => {
+    setParty(val);
+    clearTimeout(partyTimer.current);
+    partyTimer.current = setTimeout(() => onSavePartyNote(val), DEBOUNCE_MS);
+  };
+
+  // Force-save on unmount (handles in-app navigation away)
+  useEffect(() => {
+    return () => {
+      clearTimeout(myNoteTimer.current);
+      clearTimeout(partyTimer.current);
+      onSavePlayerNote(myNoteRef.current);
+      onSavePartyNote(partyRef.current);
+    };
+  }, []);
 
   const headerName = tier >= 2 && hex?.name ? hex.name
     : tier === 1 ? `Hex ${hid}` : 'Unknown Location';
@@ -26,6 +59,10 @@ export default function PlayerPanel({ hex, hexId: hid, onClose, playerName, play
       borderBottom: '1px solid rgba(255,255,255,0.06)',
     }}>{children}</div>
   );
+
+  // Other players' notes for this hex (excluding current player)
+  const otherNotes = Object.entries(allPlayerNotes || {})
+    .filter(([name, note]) => name !== playerName && note?.trim());
 
   return (
     <div style={{
@@ -106,23 +143,56 @@ export default function PlayerPanel({ hex, hexId: hid, onClose, playerName, play
           </div>
         )}
 
+        {/* My editable note */}
         <div>
           <SectionLabel>My Notes ({playerName})</SectionLabel>
           <textarea
             value={myNote}
-            onChange={e => setMyNote(e.target.value)}
-            onBlur={() => onSavePlayerNote(myNote)}
+            onChange={e => handleMyNoteChange(e.target.value)}
+            onBlur={() => { clearTimeout(myNoteTimer.current); onSavePlayerNote(myNote); }}
             placeholder="Your personal notes about this location — only you see these…"
             style={noteStyle}
           />
         </div>
 
+        {/* Other players' notes — read only */}
+        {otherNotes.length > 0 && (
+          <div>
+            <SectionLabel>Party Member Notes</SectionLabel>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {otherNotes.map(([name, note]) => (
+                <div key={name} style={{
+                  padding: '8px 10px',
+                  background: 'rgba(255,255,255,0.025)',
+                  border: '1px solid rgba(255,255,255,0.06)', borderRadius: 4,
+                }}>
+                  <div style={{
+                    fontSize: 9, color: 'rgba(255,255,255,0.3)',
+                    fontFamily: 'Cinzel, serif', letterSpacing: '0.08em', marginBottom: 4,
+                  }}>
+                    {name}
+                  </div>
+                  <div style={{
+                    fontSize: 12, color: 'rgba(232,224,216,0.55)',
+                    fontFamily: 'IM Fell English, Georgia, serif',
+                    fontStyle: 'italic', lineHeight: 1.45,
+                    whiteSpace: 'pre-wrap',
+                  }}>
+                    {note}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Shared party note */}
         <div>
           <SectionLabel>Party Notes (shared)</SectionLabel>
           <textarea
             value={party}
-            onChange={e => setParty(e.target.value)}
-            onBlur={() => onSavePartyNote(party)}
+            onChange={e => handlePartyChange(e.target.value)}
+            onBlur={() => { clearTimeout(partyTimer.current); onSavePartyNote(party); }}
             placeholder="Notes the whole party can read and edit…"
             style={{ ...noteStyle, borderColor: 'rgba(123,158,201,0.12)' }}
           />

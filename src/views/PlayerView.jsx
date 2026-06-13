@@ -57,6 +57,7 @@ export default function PlayerView() {
             playerName={playerName}
             playerNote={state.playerNotes[selectedHexId]?.[playerName] || ''}
             partyNote={state.partyNotes[selectedHexId] || ''}
+            allPlayerNotes={state.playerNotes[selectedHexId] || {}}
             onSavePlayerNote={note => dispatch({ type: 'SET_PLAYER_NOTE', hexId: selectedHexId, playerName, note })}
             onSavePartyNote={note => dispatch({ type: 'SET_PARTY_NOTE', hexId: selectedHexId, note })}
           />
