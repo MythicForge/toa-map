@@ -1,6 +1,7 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useAppState } from '../hooks/useAppState';
 import { ALL_LOCATIONS } from '../lib/locations';
+import { supabase } from '../lib/supabase';
 import HexMap from '../components/HexMap';
 import GMPanel from '../components/GMPanel';
 import TopBar from '../components/TopBar';
@@ -93,8 +94,79 @@ function ColorLegend({ hexes, spotlightColor, onSpotlight }) {
   );
 }
 
+function GMLoginGate({ onAuth }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const login = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    const { error: err } = await supabase.auth.signInWithPassword({ email, password });
+    if (err) { setError(err.message); setLoading(false); }
+    else onAuth();
+  };
+
+  const inp = {
+    width: '100%', background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.12)', borderRadius: 4,
+    color: 'rgba(232,224,216,0.9)', fontSize: 14,
+    fontFamily: 'Inter, sans-serif', padding: '9px 12px',
+    outline: 'none', boxSizing: 'border-box',
+  };
+
+  return (
+    <div style={{
+      width: '100vw', height: '100vh', display: 'flex',
+      alignItems: 'center', justifyContent: 'center', background: '#06060e',
+    }}>
+      <form onSubmit={login} style={{
+        width: 320, padding: '32px 28px',
+        background: '#111118', border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: 8, boxShadow: '0 8px 40px rgba(0,0,0,0.7)',
+        display: 'flex', flexDirection: 'column', gap: 14,
+      }}>
+        <div style={{ fontFamily: 'Cinzel, serif', fontSize: 15, color: '#e8e2d8', letterSpacing: '0.1em', marginBottom: 4 }}>
+          GM Access
+        </div>
+        <input type="email" placeholder="Email" value={email}
+          onChange={e => setEmail(e.target.value)} required style={inp} />
+        <input type="password" placeholder="Password" value={password}
+          onChange={e => setPassword(e.target.value)} required style={inp} />
+        {error && <div style={{ fontSize: 12, color: '#d45a4a', fontFamily: 'Inter, sans-serif' }}>{error}</div>}
+        <button type="submit" disabled={loading} style={{
+          padding: '10px', background: 'rgba(123,158,201,0.15)',
+          border: '1px solid rgba(123,158,201,0.4)', borderRadius: 4,
+          color: '#7B9EC9', fontFamily: 'Cinzel, serif', fontSize: 12,
+          letterSpacing: '0.1em', cursor: loading ? 'not-allowed' : 'pointer',
+        }}>
+          {loading ? 'SIGNING IN…' : 'SIGN IN'}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 export default function GMView() {
   const { state, dispatch } = useAppState();
+  const [authed, setAuthed] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setAuthed(!!data.session);
+      setAuthChecked(true);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setAuthed(!!session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (!authChecked) return null;
+  if (!authed) return <GMLoginGate onAuth={() => setAuthed(true)} />;
   const [selectedHexId, setSelectedHexId] = useState(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [showTrackers, setShowTrackers] = useState(false);

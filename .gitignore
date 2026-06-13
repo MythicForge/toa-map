@@ -2,3 +2,7 @@
 mock-design/
 node_modules/
 mockup/
+dist/
+.env
+.env.local
+.env.*.local
