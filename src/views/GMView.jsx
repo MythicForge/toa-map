@@ -150,6 +150,7 @@ function GMLoginGate({ onAuth }) {
 }
 
 function GMContent() {
+  const { state, dispatch } = useAppState();
   const [selectedHexId, setSelectedHexId] = useState(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [showTrackers, setShowTrackers] = useState(false);
