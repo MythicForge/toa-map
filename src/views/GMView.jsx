@@ -149,24 +149,7 @@ function GMLoginGate({ onAuth }) {
   );
 }
 
-export default function GMView() {
-  const { state, dispatch } = useAppState();
-  const [authed, setAuthed] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setAuthed(!!data.session);
-      setAuthChecked(true);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      setAuthed(!!session);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
-  if (!authChecked) return null;
-  if (!authed) return <GMLoginGate onAuth={() => setAuthed(true)} />;
+function GMContent() {
   const [selectedHexId, setSelectedHexId] = useState(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [showTrackers, setShowTrackers] = useState(false);
@@ -357,4 +340,24 @@ export default function GMView() {
       </div>
     </div>
   );
+}
+
+export default function GMView() {
+  const [authed, setAuthed] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setAuthed(!!data.session);
+      setAuthChecked(true);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setAuthed(!!session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (!authChecked) return null;
+  if (!authed) return <GMLoginGate onAuth={() => setAuthed(true)} />;
+  return <GMContent />;
 }
