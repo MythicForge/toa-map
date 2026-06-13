@@ -1,10 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 
 export default function PlayerNamePrompt({ onSubmit }) {
   const [name, setName] = useState('');
+  const [knownNames, setKnownNames] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const submit = () => {
-    const trimmed = name.trim();
+  useEffect(() => {
+    supabase
+      .from('player_notes')
+      .select('player_name')
+      .then(({ data }) => {
+        if (data) {
+          const unique = [...new Set(data.map(r => r.player_name))].sort();
+          setKnownNames(unique);
+        }
+        setLoading(false);
+      });
+  }, []);
+
+  const submit = (n = name) => {
+    const trimmed = n.trim();
     if (!trimmed) return;
     onSubmit(trimmed);
   };
@@ -16,7 +32,7 @@ export default function PlayerNamePrompt({ onSubmit }) {
     }}>
       <div style={{
         background: '#111118', border: '1px solid rgba(255,255,255,0.09)',
-        borderRadius: 10, padding: '36px 40px', width: 360,
+        borderRadius: 10, padding: '36px 40px', width: 380,
         boxShadow: '0 24px 64px rgba(0,0,0,0.7)',
       }}>
         {/* Logo */}
@@ -36,7 +52,48 @@ export default function PlayerNamePrompt({ onSubmit }) {
           </div>
         </div>
 
-        <div style={{ fontFamily: 'IM Fell English, Georgia, serif', fontSize: 13, color: 'rgba(255,255,255,0.45)', fontStyle: 'italic', textAlign: 'center', marginBottom: 22, lineHeight: 1.55 }}>
+        {/* Known players */}
+        {!loading && knownNames.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{
+              fontSize: 9, fontFamily: 'Cinzel, serif', letterSpacing: '0.14em',
+              color: 'rgba(255,255,255,0.28)', marginBottom: 10, textAlign: 'center',
+            }}>
+              RETURNING EXPLORER?
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+              {knownNames.map(n => (
+                <button key={n} onClick={() => submit(n)} style={{
+                  padding: '6px 14px', borderRadius: 20,
+                  background: 'rgba(123,158,201,0.1)',
+                  border: '1px solid rgba(123,158,201,0.3)',
+                  color: '#7B9EC9', fontFamily: 'Inter, sans-serif',
+                  fontSize: 13, cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}>
+                  {n}
+                </button>
+              ))}
+            </div>
+            <div style={{
+              margin: '18px 0 14px', borderBottom: '1px solid rgba(255,255,255,0.07)',
+              position: 'relative',
+            }}>
+              <span style={{
+                position: 'absolute', top: -8, left: '50%', transform: 'translateX(-50%)',
+                background: '#111118', padding: '0 10px',
+                fontSize: 9, color: 'rgba(255,255,255,0.22)',
+                fontFamily: 'Cinzel, serif', letterSpacing: '0.12em',
+              }}>OR NEW EXPLORER</span>
+            </div>
+          </div>
+        )}
+
+        <div style={{
+          fontFamily: 'IM Fell English, Georgia, serif', fontSize: 13,
+          color: 'rgba(255,255,255,0.45)', fontStyle: 'italic',
+          textAlign: 'center', marginBottom: 14, lineHeight: 1.55,
+        }}>
           Enter your character name to begin.
         </div>
 
@@ -57,7 +114,7 @@ export default function PlayerNamePrompt({ onSubmit }) {
         />
 
         <button
-          onClick={submit}
+          onClick={() => submit()}
           disabled={!name.trim()}
           style={{
             width: '100%', padding: '10px', cursor: name.trim() ? 'pointer' : 'default',
